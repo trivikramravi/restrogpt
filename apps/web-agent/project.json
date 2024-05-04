@@ -1,0 +1,24 @@
+{
+  "name": "web-agent",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/web-agent/src",
+  "projectType": "application",
+  "tags": [],
+  "targets": {
+    "serve": {
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "web-agent:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "web-agent:build:development"
+        },
+        "production": {
+          "buildTarget": "web-agent:build:production"
+        }
+      }
+    }
+  }
+}
