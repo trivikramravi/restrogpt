@@ -4,23 +4,21 @@ import { chromium } from 'playwright';
 import { Logger } from '@nestjs/common';
 
 
+
 @Injectable()
 export class ToastService {
     async placeOrder(orderDetails: OrderRequestDto[]) {
         try{
-        let url = "https://order.toasttab.com/online/flintridge-pizza-kitchen"
-        const browser = await chromium.launch({
-            headless: false
-        })
+        const url = "https://order.toasttab.com/online/flintridge-pizza-kitchen";
+       let browser = await chromium.launch({ headless: false }); // Set headless to false for debugging
         const context = await browser.newContext();
         const page = await context.newPage();
-        await page.goto(url)
-        await page.waitForTimeout(1000);
-
-        await page.waitForSelector('[nav-role="primary-cta"]', { timeout: 100000 })
-        await page.waitForSelector('[data-testid="primary-cta-oo-options-btn"]')
-        Logger.log("the pick up header has loaded")
-        await page.click('[data-testid="primary-cta-oo-options-btn"]')
+        await page.goto(url);
+  
+        await page.waitForSelector('.orderOptions', { state: 'visible', timeout: 100000 });
+        Logger.log("The pick-up header has loaded");
+  
+        await page.click('.orderOptions');
         await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 100000 })
         await page.waitForTimeout(1000);
 
