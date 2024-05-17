@@ -1,33 +1,54 @@
 import { Injectable } from '@nestjs/common';
-import { OrderRequestDto } from '../dtos/order-request.dto';
 import { chromium } from 'playwright';
 import { Logger } from '@nestjs/common';
-
+import { OrderDto } from '../dtos/order.dto';
 
 
 @Injectable()
 export class ToastService {
-    async placeOrder(orderDetails: OrderRequestDto[]) {
+    async placeOrder(orderDetails: OrderDto[]) {
         try{
-        const url = "https://order.toasttab.com/online/flintridge-pizza-kitchen";
-       let browser = await chromium.launch({ headless: false }); // Set headless to false for debugging
+        let url = "https://order.toasttab.com/online/flintridge-pizza-kitchen"
+        const browser = await chromium.launch({
+            headless: false
+        })
         const context = await browser.newContext();
         const page = await context.newPage();
-        await page.goto(url);
-  
-        await page.waitForSelector('.orderOptions', { state: 'visible', timeout: 100000 });
-        Logger.log("The pick-up header has loaded");
-  
-        await page.click('.orderOptions');
-        await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 100000 })
+        await page.goto(url)
         await page.waitForTimeout(1000);
 
+        await page.waitForSelector('[nav-role="primary-cta"]', { timeout: 100000 })
+        await page.waitForSelector('[data-testid="primary-cta-oo-options-btn"]')
+        Logger.log("the pick up header has loaded")
+        await page.click('[data-testid="primary-cta-oo-options-btn"]')
+        await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 100000 })
+
+        await page.waitForTimeout(1000);
+        await page.click('div[data-testid="dropdown-selector"]');
+
+    // Wait for the dropdown options to be visible
+    await page.waitForSelector('div[data-testid="dropdown-content"]');
+
+    // Select the option "Wed, 5/22"
+    await page.click('div[data-testid="dropdown-option"]:has-text("Wed, 5/22")');
+
+    Logger.log("Dropdown option 'Wed, 5/22' selected");
+    // await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 100000 })
+
+    // await page.click('div[data-testid="dropdown-selector"]');
+    // await page.waitForSelector('div[data-testid="dropdown-content"]');
+
+    // // Select the option "Wed, 5/22"
+    // await page.click('div[data-testid="dropdown-option"]:has-text("1:15 AM GMT+5:30")');
+
+    // Logger.log("Dropdown option '1:15 AM GMT+5:30' selected");
+    await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 100000 })
         await page.click('[data-testid="diningOptionSubmit"]')
 
         Logger.log("update the pickup time")
 
         for (let orderDetail of orderDetails) {
-            for (let item of orderDetail.itemDetails) {
+            for (let item of orderDetail.items) {
                 await page.waitForSelector('.ooSearch', { timeout: 100000 })
                 await page.fill('.ooSearch input[type="text"]', `${item.name}`);
                 // const searchInput = await page.$('.ooSearch input[type="text"]',{ timeout: 100000 });
@@ -51,8 +72,8 @@ export class ToastService {
 
                 await page.waitForSelector('[aria-labelledby="menu-item-modal-header"]');
 
-                if (item.Addons.toppings.length > 0) {
-                    for (const topping of item.Addons.toppings) {
+                if (item.toppings.length > 0) {
+                    for (const topping of item.toppings) {
                         await page.waitForSelector(`div.name:has-text("${topping}")`);
                         const selector = `div.name:has-text("${topping}")`;
                         await page.click(selector);
@@ -61,9 +82,9 @@ export class ToastService {
                 }
 
                 await page.waitForSelector('.addToCart', { state: "visible", timeout: 50000 });
-                if (item.qty > 1) {
+                if (item.quantity > 1) {
 
-                    for (let i = 1; i < item.qty; i++) {
+                    for (let i = 1; i < item.quantity; i++) {
                         await page.waitForSelector('[data-testid="inc-button"]', { state: "visible" });
 
                         // Click on the increment button
@@ -123,10 +144,10 @@ export class ToastService {
             await page.waitForSelector('[data-testid="customer-info-inputs-animated-section"]', { state: "visible", timeout: 50000 });
 
 
-            await page.fill('[data-testid="input-yourInfoPhone"]', `${orderDetail.customerDetails.phoneNo}`); // Fill phone number
-            await page.fill('[data-testid="input-yourInfoEmail"]', `${orderDetail.customerDetails.email}`); // Fill email
-            await page.fill('[data-testid="input-yourInfoFirstName"]', `${orderDetail.customerDetails.firstName}`); // Fill first name
-            await page.fill('[data-testid="input-yourInfoLastName"]', `${orderDetail.customerDetails.lastName}`); // Fill last name
+            await page.fill('[data-testid="input-yourInfoPhone"]', `${orderDetail.user_phone}`); // Fill phone number
+            await page.fill('[data-testid="input-yourInfoEmail"]', `${orderDetail.user_email}`); // Fill email
+            await page.fill('[data-testid="input-yourInfoFirstName"]', `${orderDetail.user_first_name}`); // Fill first name
+            await page.fill('[data-testid="input-yourInfoLastName"]', `${orderDetail.user_last_name}`); // Fill last name
 
             await page.waitForTimeout(2000)
 
