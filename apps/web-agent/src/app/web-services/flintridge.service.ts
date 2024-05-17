@@ -6,8 +6,9 @@ import { Logger } from '@nestjs/common';
 @Injectable()
 export class FlintridgeService {
     async placeOrder(orderDetails: OrderRequestDto[]) {
+        try{
         const browser = await chromium.launch({
-            headless: false
+            headless: true
         })
         const context = await browser.newContext();
         const page = await context.newPage();
@@ -152,17 +153,20 @@ export class FlintridgeService {
 
             // Now you can interact with elements inside the iframe
             await iframe.fill('#Field-numberInput', '4242424242424242');
-            await iframe.fill('#Field-expiryInput', '04/24');
+            await iframe.fill('#Field-expiryInput', '04/25');
             await iframe.fill('#Field-cvcInput', '424');
             Logger.log("payment details filled")
             // await page.click('#submit');
 
             await page.waitForTimeout(5000)
-
+        }
             await browser.close();
 
             return "order placed succssfully"
-
+        }catch(error){
+            Logger.error(`error in flintridge service ${error.message}`)
+            return error.message
         }
+        
     }
 }

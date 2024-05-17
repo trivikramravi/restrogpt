@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { OrderRequestDto } from '../dtos/order-request.dto';
 import { chromium } from 'playwright';
 import { Logger } from '@nestjs/common';
+import { ElementHandle } from 'puppeteer';
 
 
 @Injectable()
@@ -10,21 +11,22 @@ export class ToastService {
         try{
         let url = "https://order.toasttab.com/online/flintridge-pizza-kitchen"
         const browser = await chromium.launch({
-            headless: false
+            headless: true
         })
         const context = await browser.newContext();
         const page = await context.newPage();
         await page.goto(url)
-        await page.waitForTimeout(1000);
-
-        await page.waitForSelector('[nav-role="primary-cta"]', { timeout: 100000 })
-        await page.waitForSelector('[data-testid="primary-cta-oo-options-btn"]')
+        await page.waitForTimeout(5000);
+        Logger.log("page loaded")
+        //await page.waitForSelector('.navWrapper', {state: "visible", timeout: 50000 })
+        await page.waitForSelector('.diningOptionBehavior', {state: "visible", timeout: 50000 })
+        await page.waitForSelector('.diningOptionAnchor', {state: "visible", timeout: 50000 })
         Logger.log("the pick up header has loaded")
-        await page.click('[data-testid="primary-cta-oo-options-btn"]')
-        await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 100000 })
+        await page.click('.diningOptionAnchor')
+        await page.waitForSelector('.diningOptionsContent', { state: 'visible', timeout: 100000 })
         await page.waitForTimeout(1000);
 
-        await page.click('[data-testid="diningOptionSubmit"]')
+        await page.click('#diningOptionSubmit')
 
         Logger.log("update the pickup time")
 
