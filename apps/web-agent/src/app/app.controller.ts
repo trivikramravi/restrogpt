@@ -18,13 +18,13 @@ export class AppController {
   }
 
   @Post('placeOrder')
-  placeOrder(@Body() request: OrderDto[],
+  placeOrder(@Body() request,
               @Headers('Restaurent') headerValue: string) {
     Logger.log(JSON.stringify(request)); // Do something with the request body
     
     switch (headerValue) {
-      // case 'flintridge':
-      //   return this.flintridgeService.placeOrder(request);
+      case 'flintridge':
+        return this.flintridgeService.placeOrder(request);
       case 'toast':
         return this.toastService.placeOrder(request);
       // Add more cases for other state codes if needed

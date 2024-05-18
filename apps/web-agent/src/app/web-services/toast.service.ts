@@ -1,166 +1,144 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { chromium } from 'playwright';
-import { Logger } from '@nestjs/common';
 import { OrderDto } from '../dtos/order.dto';
-
 
 @Injectable()
 export class ToastService {
     async placeOrder(orderDetails: OrderDto[]) {
-        try{
-        let url = "https://order.toasttab.com/online/flintridge-pizza-kitchen"
-        const browser = await chromium.launch({
-            headless: false
-        })
+       let url = "https://order.toasttab.com/online/flintridge-pizza-kitchen";
+       
+       try{
+        const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36";
+        const browser = await chromium.launch({ headless: true });
         const context = await browser.newContext();
         const page = await context.newPage();
-        await page.goto(url)
-        await page.waitForTimeout(1000);
+       // await page.setViewportSize({ width: 1200, height: 800 });
+    
+        // Set a user agent to avoid being detected as a bot
+        
+        //await page.setUserAgent(ua);
+    
+        Logger.log("Launch the site");
+        await page.goto(url);
+        await page.waitForTimeout(2000);
+        Logger.log("site launched");
 
-        await page.waitForSelector('[nav-role="primary-cta"]', { timeout: 100000 })
-        await page.waitForSelector('[data-testid="primary-cta-oo-options-btn"]')
-        Logger.log("the pick up header has loaded")
-        await page.click('[data-testid="primary-cta-oo-options-btn"]')
-        await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 100000 })
+        //await waitUntilElement(page, '[nav-role="primary-cta"]', 100000);
+            
+        await page.waitForSelector('.navWrapper', {state: 'visible', timeout: 120000 });
+        await page.click('.orderOptions');
 
-        await page.waitForTimeout(1000);
-        await page.click('div[data-testid="dropdown-selector"]');
+            await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 120000 });
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Wait for the dropdown options to be visible
-    await page.waitForSelector('div[data-testid="dropdown-content"]');
+           
+            for (let orderDetail of orderDetails) {
+            //await page.click('div[data-testid="dropdown-selector"]');
+            // await page.waitForSelector('div[data-testid="dropdown-content"]');
+            // await page.click(`div[data-testid="dropdown-option"]:has-text(${orderDetail.order_date})`);
+            // Logger.log(`Dropdown option ${orderDetail.order_date} selected`);
 
-    // Select the option "Wed, 5/22"
-    await page.click('div[data-testid="dropdown-option"]:has-text("Wed, 5/22")');
+            await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 120000 });
+            await page.click('[data-testid="diningOptionSubmit"]');
+            Logger.log("Pickup time updated");
 
-    Logger.log("Dropdown option 'Wed, 5/22' selected");
-    // await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 100000 })
+           
+            
+                for (let item of orderDetail.items) {
+                    await page.waitForSelector('.searchBox', { timeout: 120000 });
+                    await page.fill('.searchBox', `${item.name}`);
 
-    // await page.click('div[data-testid="dropdown-selector"]');
-    // await page.waitForSelector('div[data-testid="dropdown-content"]');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // // Select the option "Wed, 5/22"
-    // await page.click('div[data-testid="dropdown-option"]:has-text("1:15 AM GMT+5:30")');
+                    await page.waitForSelector('.clickable', { timeout: 120000 });
+                    await page.click('.clickable a');
+                    Logger.log("Item selected");
 
-    // Logger.log("Dropdown option '1:15 AM GMT+5:30' selected");
-    await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 100000 })
-        await page.click('[data-testid="diningOptionSubmit"]')
+                    await page.waitForSelector('[aria-labelledby="menu-item-modal-header"]', { timeout: 120000 });
 
-        Logger.log("update the pickup time")
-
-        for (let orderDetail of orderDetails) {
-            for (let item of orderDetail.items) {
-                await page.waitForSelector('.ooSearch', { timeout: 100000 })
-                await page.fill('.ooSearch input[type="text"]', `${item.name}`);
-                // const searchInput = await page.$('.ooSearch input[type="text"]',{ timeout: 100000 });
-
-                //   await searchInput.fill(`${item.name}`);
-
-                // Click on the search button
-                await page.waitForSelector('.searchIcon');
-                const searchButton = await page.$('.searchIcon');
-                await searchButton.click();
-                Logger.log("the searched")
-
-                await page.waitForTimeout(2000);
-
-                await page.waitForSelector('.clickable');
-                // Click on the ul
-                await page.click('.clickable a');
-
-                Logger.log("item selected")
-
-
-                await page.waitForSelector('[aria-labelledby="menu-item-modal-header"]');
-
-                if (item.toppings.length > 0) {
-                    for (const topping of item.toppings) {
-                        await page.waitForSelector(`div.name:has-text("${topping}")`);
-                        const selector = `div.name:has-text("${topping}")`;
-                        await page.click(selector);
-                        Logger.log(`the toppings selected is ${topping}`)
+                    if (item.toppings.length > 0) {
+                        for (const topping of item.toppings) {
+                            const selector = `div.name:has-text("${topping}")`;
+                            await page.waitForSelector(selector, { timeout: 120000 });
+                            await page.click(selector);
+                            Logger.log(`Topping selected: ${topping}`);
+                        }
                     }
+
+                    await page.waitForSelector('.addToCart', { state: "visible", timeout: 120000 });
+                    if (item.quantity > 1) {
+                        for (let i = 1; i < item.quantity; i++) {
+                            await page.waitForSelector('[data-testid="inc-button"]', { state: "visible", timeout: 120000 });
+                            await page.click('[data-testid="inc-button"]');
+                        }
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    await page.waitForSelector('.modalButton[data-testid="menu-item-cart-cta"]', { timeout: 120000 });
+                    await page.click('.modalButton[data-testid="menu-item-cart-cta"]');
+                    
+                    await page.waitForSelector('.closeButton', { state: "visible", timeout: 120000 })
+                    await page.click('.closeButton')
+                }
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                await page.waitForSelector('.targetAction', { timeout: 120000 });
+                await page.click('.targetAction');
+                
+                await page.waitForSelector('.checkoutButton[data-testid="cart-checkout-cta"]', { timeout: 120000 });
+                await page.click('.checkoutButton[data-testid="cart-checkout-cta"]');
+                Logger.log("Product added to cart and checkout initiated");
+
+                    if(orderDetail.is_vehicle){
+                        await page.waitForSelector('.checkoutSection', { timeout: 120000 });
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        await page.click('.curbsideText');
+    
+                        await page.waitForSelector('[data-testid="input-curbsidePickupVehicle"]', { timeout: 120000 });
+                        await page.fill('[data-testid="input-curbsidePickupVehicle"]', `${orderDetail.car_number}`);
+                        await page.fill('[data-testid="input-curbsidePickupVehicleColor"]', `${orderDetail.car_color}`);
+                        Logger.log("car details entered")
+                    }
+
+                await page.waitForSelector('.checkoutForm', { timeout: 120000 });
+                await page.waitForSelector('[data-testid="guestCheckoutButton"]', { timeout: 120000 });
+                await page.click('[data-testid="guestCheckoutButton"]');
+
+                await page.waitForSelector('iframe[title="creditCardForm"]', { state: "visible", timeout: 120000 });
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                const iframeHandle = await page.$('iframe[title="creditCardForm"]');
+                const cardFrame = await iframeHandle.contentFrame();
+
+                if(cardFrame){
+
+                    await cardFrame.waitForSelector('[data-testid="credit-card-number"]', { timeout: 120000 });
+                    await cardFrame.fill('[data-testid="credit-card-number"]', '4242424242424242');
+                    await cardFrame.fill('[data-testid="credit-card-exp"]', '04/25');
+                    await cardFrame.fill('[data-testid="credit-card-cvv"]', '123');
+                    await cardFrame.fill('[data-testid="credit-card-zip"]', '12345');
+                    Logger.log("Payment details filled");
+                } else {
+                    throw new Error("Failed to switch to iframe context");
                 }
 
-                await page.waitForSelector('.addToCart', { state: "visible", timeout: 50000 });
-                if (item.quantity > 1) {
+                await page.waitForSelector('[data-testid="customer-info-inputs-animated-section"]', { state: "visible", timeout: 120000 });
+                await page.fill('[data-testid="input-yourInfoPhone"]', `${orderDetail.user_phone}`);
+                await page.fill('[data-testid="input-yourInfoEmail"]', `${orderDetail.user_email}`);
+                await page.fill('[data-testid="input-yourInfoFirstName"]', `${orderDetail.user_first_name}`);
+                await page.fill('[data-testid="input-yourInfoLastName"]', `${orderDetail.user_last_name}`);
 
-                    for (let i = 1; i < item.quantity; i++) {
-                        await page.waitForSelector('[data-testid="inc-button"]', { state: "visible" });
-
-                        // Click on the increment button
-                        await page.click('[data-testid="inc-button"]');
-                    }
-                }
-
-                await page.waitForTimeout(1000);
-                await page.waitForSelector('.modalButton[data-testid="menu-item-cart-cta"]');
-                await page.click('.modalButton[data-testid="menu-item-cart-cta"]')
-
-                await page.waitForTimeout(1000);
-                await page.waitForSelector('.cartContent');
-                await page.waitForTimeout(5000);
-
-            }
-            await page.waitForSelector('.checkoutButton[data-testid="cart-checkout-cta"]');
-            await page.click('.checkoutButton[data-testid="cart-checkout-cta"]')
-            Logger.log("product added to cart and checkout done")
-
-            //checkout page
-            await page.waitForSelector('.checkoutForm')
-            await page.waitForSelector('[data-testid="guestCheckoutButton"]')
-            await page.click('[data-testid="guestCheckoutButton"]')
-
-            //await page.waitForSelector('.CreditCardForm__wrapper___Fd5DW',{ visible: true, timeout: 60000 })
-
-            // Wait for the iframe to be available
-            await page.waitForSelector('iframe[title="creditCardForm"]', { state: "visible", timeout: 5000 });
-
-            await page.waitForTimeout(2000);// Get the iframe element handle
-            const iframeHandle = await page.$('iframe[title="creditCardForm"]');
-
-            // Switch to the iframe context
-            const cardFrame = await iframeHandle.contentFrame();
-
-            // Now you can interact with elements inside the iframe
-            if (cardFrame) {
-                // For example, you can fill the credit card number input field
-                await cardFrame.waitForSelector('[data-testid="credit-card-number"]');
-                //await cardFrame.waitForSelector('.yourInfoContainer[data-testid="input-yourInfoPhone"]', { visible: true, timeout: 60000 });
-
-                await cardFrame.fill('[data-testid="credit-card-number"]', '4242424242424242');
-
-                // Fill other fields similarly
-                await cardFrame.fill('[data-testid="credit-card-exp"]', '04/25');
-                await cardFrame.fill('[data-testid="credit-card-cvv"]', '123');
-                await cardFrame.fill('[data-testid="credit-card-zip"]', '12345');
-
-                Logger.log("Payment details filled");
-                Logger.log("person detials filled success");
-            } else {
-                console.error('Failed to switch to iframe context');
-                throw Error("iframe not found ")
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                Logger.log("Customer details filled successfully");
             }
 
-            await page.waitForSelector('[data-testid="customer-info-inputs-animated-section"]', { state: "visible", timeout: 50000 });
-
-
-            await page.fill('[data-testid="input-yourInfoPhone"]', `${orderDetail.user_phone}`); // Fill phone number
-            await page.fill('[data-testid="input-yourInfoEmail"]', `${orderDetail.user_email}`); // Fill email
-            await page.fill('[data-testid="input-yourInfoFirstName"]', `${orderDetail.user_first_name}`); // Fill first name
-            await page.fill('[data-testid="input-yourInfoLastName"]', `${orderDetail.user_last_name}`); // Fill last name
-
-            await page.waitForTimeout(2000)
-
-            Logger.log("success");
+            await browser.close();
+            return "Order placed successfully";
+        } catch (error) {
+            //await page.screenshot({ path: 'error_screenshot.png' });
+            Logger.error(`Error in ToastService: ${error.message}`);
+            //await browser.close();
+            return error.message;
         }
-        await browser.close();
-
-        return "order placed succssfully"
-    }catch(error){
-        Logger.error(`error in toast service ${error.message}`)
-        return error.message
-    }
-
-
     }
 }
