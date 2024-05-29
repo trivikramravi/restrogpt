@@ -1,15 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OrderDto } from '../dtos/order.dto';
-import { timeout } from 'rxjs';
 const puppeteer = require('puppeteer');
+
 
 @Injectable()
 export class ToastService {
     async placeOrder(orderDetail: OrderDto) {
-        let url = "https://order.toasttab.com/online/flintridge-pizza-kitchen";
-
-        try {
-            const browser = await puppeteer.launch({ headless: false })
+        let url = process.env.TOASTURL;
+        const browser = await puppeteer.launch({ headless: true })
+        try { 
             const page = await browser.newPage();
             await page.setViewport({ width: 1400, height: 850 });
             // Set a user agent to avoid being detected as a bot
@@ -21,21 +20,30 @@ export class ToastService {
             Logger.log("site launched")
             await new Promise(resolve => setTimeout(resolve, 1000));
 
+            /****************** Updating pickup time ***********************/
             await page.waitForSelector('[data-testid="primary-cta-oo-options-btn"]', { timeout: 120000 });
             await page.click('[data-testid="primary-cta-oo-options-btn"]');
 
             await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 120000 });
             await new Promise(resolve => setTimeout(resolve, 2000));
 
-            // Select the date 'Wed, 5/29'
-            await selectDropdownOption(page, orderDetail.order_date);
+            let dateResponse = await this.selectdateDropdownOption(page, orderDetail.order_date);
+            if (!dateResponse.status) {
+                throw Error(`${dateResponse.error.message}`)
+            }
             Logger.log(`Dropdown option date ${orderDetail.order_date} selected`);
 
             await new Promise(resolve => setTimeout(resolve, 2000));
 
 
             // Call the function to select the time from the dropdown
-            await selectTimeFromDropdown(page, orderDetail.order_time);
+            let timeResponse = await this.selectTimeFromDropdown(page, orderDetail.order_time);
+            if (!timeResponse.status) {
+                throw Error(`${timeResponse.error.message}`)
+            }
+            Logger.log(`Dropdown option time ${orderDetail.order_time} selected`);
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
             await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 120000 });
             await page.click('[data-testid="diningOptionSubmit"]');
@@ -43,25 +51,34 @@ export class ToastService {
 
             Logger.log("Pickup time updated");
 
-
             for (let item of orderDetail.items) {
 
                 await page.waitForSelector('input[placeholder="Search"]', { visible: true, timeout: 60000 });
+                await page.click('input[placeholder="Search"]');
+
+                // Select all text in the input field
+                await page.keyboard.down('Control');
+                await page.keyboard.press('A');
+                await page.keyboard.up('Control');
+
+                // Delete the selected text
+                await page.keyboard.press('Backspace');
                 await page.type('input[placeholder="Search"]', item.name);
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                Logger.log(`the require item ${item.name} is searched`)
+                await new Promise(resolve => setTimeout(resolve, 3000));
 
                 await page.waitForSelector('span.headerText');
 
                 // Find the span with the specific text and click it
                 await page.evaluate((value) => {
-                    const spanText = value;
                     const spans = document.querySelectorAll('span.headerText');
-                    spans.forEach(span => {
-                        if (span.textContent.trim() === spanText) {
+                    for(let span in spans){
+                        if (spans[span].textContent.trim() === value) {
                             const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
-                            span.dispatchEvent(event);
+                            spans[span].dispatchEvent(event);
+                            break;
                         }
-                    });
+                    };
                 }, item.name);
 
                 // Log the action
@@ -79,8 +96,11 @@ export class ToastService {
                         await page.evaluate((topping) => {
                             const elements = Array.from(document.querySelectorAll('div.name'));
                             const element = elements.find(el => el.textContent.trim() === topping);
+
                             if (element) {
                                 (element as HTMLElement).click();
+                            }else{
+                                throw Error(`the topping ${topping} is not found`) 
                             }
                         }, topping);
 
@@ -93,6 +113,7 @@ export class ToastService {
                                 Logger.log(`The quantity has been incresed for topping ${topping}`);
                             }
                         }
+                        await new Promise(resolve => setTimeout(resolve, 2000));
                     }
                 }
 
@@ -155,10 +176,10 @@ export class ToastService {
 
             if (cardFrame) {
                 await cardFrame.waitForSelector('[data-testid="credit-card-number"]', { timeout: 10000 });
-                await cardFrame.type('[data-testid="credit-card-number"]', '4242424242424242');
-                await cardFrame.type('[data-testid="credit-card-exp"]', '04/25');
-                await cardFrame.type('[data-testid="credit-card-cvv"]', '123');
-                await cardFrame.type('[data-testid="credit-card-zip"]', '12345');
+                await cardFrame.type('[data-testid="credit-card-number"]', process.env.CARD_NUMBER);
+                await cardFrame.type('[data-testid="credit-card-exp"]', process.env.CARD_EXPIRE_DATE);
+                await cardFrame.type('[data-testid="credit-card-cvv"]', process.env.CARD_CVV);
+                await cardFrame.type('[data-testid="credit-card-zip"]', process.env.CARD_ZIPCODE);
                 Logger.log("Payment details typed");
             } else {
                 throw new Error("Failed to switch to iframe context");
@@ -176,87 +197,125 @@ export class ToastService {
             let buttonText = "Other"
             const selector = `button.tipButton`;
 
-    // Wait for the buttons to become visible
-    await page.waitForSelector(selector, { state: "visible" ,timeout:100000});
+            // Wait for the buttons to become visible
+            await page.waitForSelector(selector, { state: "visible", timeout: 100000 });
 
-    // Get all buttons with the class 'tipButton'
-    const buttons = await page.$$(selector);
+            // Get all buttons with the class 'tipButton'
+            const buttons = await page.$$(selector);
 
-    // Iterate over the buttons and find the one with the desired text content
-    for (const button of buttons) {
-        const text = await button.evaluate(node => node.textContent.trim());
-        if (text === buttonText) {
-            // Click the button
-            await button.click();
-             break;// Exit the loop after clicking the button
-        }
-    }
-    
-    await page.waitForSelector('[data-testid="input-custom-tip-amount"]', { state: "visible", timeout: 10000 });
-    await page.type('[data-testid="input-custom-tip-amount"]', "0");
-    Logger.log("the tip is added")
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            // Iterate over the buttons and find the one with the desired text content
+            for (const button of buttons) {
+                const text = await button.evaluate(node => node.textContent.trim());
+                if (text === buttonText) {
+                    // Click the button
+                    await button.click();
+                    break;// Exit the loop after clicking the button
+                }
+            }
+
+            await page.waitForSelector('[data-testid="input-custom-tip-amount"]', { state: "visible", timeout: 10000 });
+            await page.type('[data-testid="input-custom-tip-amount"]', "0");
+            Logger.log("the tip is added")
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
             await browser.close();
 
             return "Order placed successfully";
+
         } catch (error) {
             //await page.screenshot({ path: 'error_screenshot.png' });
-            Logger.error(`Error in ToastService: ${error.message}`);
+            Logger.error(`Error in ToastService is: ${error.message}`);
             //await browser.close();
-            return error.message;
+            let errorData = {
+                "resto_id": orderDetail.resto_id,
+                "error": {
+                    "message": error.message,
+                    "status": "failed"
+                },
+                "toast_id": "NA",
+                "code": 500
+            }
+            await browser.close();
+            return errorData;
         }
     }
-}
 
-async function selectDropdownOption(page, optionText) {
-    // Click to open the dropdown
-    await page.click('div[data-testid="dropdown-selector"]',);
 
-    // Wait for the dropdown content to be visible
-    await page.waitForSelector('div[data-testid="dropdown-content"]:not(.hide)');
-
-    // Select the dropdown option by finding the element with the text
-    await page.evaluate((optionText) => {
-        const options = document.querySelectorAll('div[data-testid="dropdown-option"]');
-        options.forEach(option => {
-            if (option.textContent.includes(optionText)) {
-                const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
-                option.dispatchEvent(event);
-            }
-        });
-    }, optionText);
-}
-
-async function selectTimeFromDropdown(page, time) {
-    // Find all dropdowns
-
-    const dropdowns = await page.$$('div.dropDown.withBorder');
-
-    // Iterate through each dropdown
-    for (const dropdown of dropdowns) {
-        // Get the label text of the dropdown
-        const labelText = await dropdown.$eval('.dropDownLabel', label => label.textContent);
-
-        // Check if the label contains "GMT"
-        if (labelText.includes("GMT")) {
+    async selectdateDropdownOption(page, optionText) {
+        try {
             // Click to open the dropdown
-            await dropdown.click();
+            await page.click('div[data-testid="dropdown-selector"]');
 
             // Wait for the dropdown content to be visible
             await page.waitForSelector('div[data-testid="dropdown-content"]:not(.hide)');
 
-            // Select the time '12:00 AM GMT+5:30'
-            const options = await page.$$('div[data-testid="dropdown-option"]');
-            for (const option of options) {
-                const optionText = await option.evaluate(node => node.textContent);
-                if (optionText.includes(time)) {
-                    await option.click();
-                    Logger.log(`Time selected: ${optionText}`);
-                    return; // Exit the loop once the option is selected
+            // Select the dropdown option by finding the element with the text
+            const dateFound = await page.evaluate((optionText) => {
+                const options = document.querySelectorAll('div[data-testid="dropdown-option"]');
+                let found = false;
+
+                options.forEach(option => {
+                    if (option.textContent.includes(optionText)) {
+                        const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+                        option.dispatchEvent(event);
+                        found = true;
+                    }
+                });
+
+                return found;
+            }, optionText);
+
+            if (!dateFound) {
+                throw new Error(`The ${optionText} is not found in the dropdown`);
+            }
+            return { status: true, error: null }
+        } catch (error) {
+            Logger.error(`Error selecting date from dropdown: ${error.message}`);
+            return { status: false, error: error };
+        }
+    }
+
+
+    async selectTimeFromDropdown(page, time) {
+        try {
+            const dropdowns = await page.$$('div.dropDown.withBorder');
+
+            // Iterate through each dropdown
+            for (const dropdown of dropdowns) {
+                // Get the label text of the dropdown
+                const labelText = await dropdown.$eval('.dropDownLabel', label => label.textContent);
+                // Check if the label contains "GMT"
+                if (labelText.includes("GMT")) {
+                    // Click to open the dropdown
+                    await dropdown.click();
+
+                    // Wait for the dropdown content to be visible
+                    await page.waitForSelector('div[data-testid="dropdown-content"]:not(.hide)');
+
+                    const dateFound = await page.evaluate((optionText) => {
+                        const options = document.querySelectorAll('div[data-testid="dropdown-option"]');
+                        let found = false;
+
+                        options.forEach(option => {
+                            if (option.textContent.includes(optionText)) {
+                                const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+                                option.dispatchEvent(event);
+                                found = true;
+                            }
+                        });
+
+                        return found;
+                    }, time);
+                    Logger.log(`the time picker ${dateFound}`)
+                    if (!dateFound) {
+                        throw new Error(`The ${time} is not found in the dropdown`);
+                    }
                 }
             }
+            return { status: true, error: null }
+        } catch (error) {
+            Logger.error(`the error in selecting time from dropdowm ${error.message}`)
+            return { status: false, error: error }
         }
     }
 }
-
