@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OrderDto } from '../dtos/order.dto';
-import { ItemDetailsDto } from '../dtos/item-details.dto';
 import { CartOrderItemDto } from '../dtos/response/cartData';
 import { OrderResponseDto } from '../dtos/response/orderResponse';
 import { OrderDataDto } from '../dtos/response/orderData';
@@ -9,6 +8,7 @@ const puppeteer = require('puppeteer');
 
 @Injectable()
 export class ToastService {
+    private readonly logger: Logger = new Logger(ToastService.name)
     async placeOrder(orderDetail: OrderDto) {
         let url = process.env.TOASTURL;
         const browser = await puppeteer.launch({ headless: false })
@@ -19,9 +19,9 @@ export class ToastService {
             const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36";
             await page.setUserAgent(ua);
 
-            Logger.log("Launch the site")
+            this.logger.log("Launch the site")
             await page.goto(url, { waitUntil: 'networkidle2' })
-            Logger.log("site launched")
+            this.logger.log("site launched")
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             /****************** Updating pickup time ***********************/
@@ -35,7 +35,7 @@ export class ToastService {
             if (!dateResponse.status) {
                 throw Error(`${dateResponse.error.message}`)
             }
-            Logger.log(`Dropdown option date ${orderDetail.order_date} selected`);
+            this.logger.log(`Dropdown option date '${orderDetail.order_date}' selected`);
 
             await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -46,7 +46,7 @@ export class ToastService {
             if (!timeResponse.status) {
                 throw Error(`${timeResponse.error.message}`)
             }
-            Logger.log(`Dropdown option time ${orderDetail.order_time} selected`);
+            this.logger.log(`Dropdown option time ${orderDetail.order_time} selected`);
 
             await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -54,7 +54,7 @@ export class ToastService {
             await page.click('[data-testid="diningOptionSubmit"]');
             await new Promise(resolve => setTimeout(resolve, 2000));
 
-            Logger.log("Pickup time updated");
+            this.logger.log("Pickup time updated");
 
             for (let item of orderDetail.items) {
 
@@ -69,7 +69,7 @@ export class ToastService {
                 // Delete the selected text
                 await page.keyboard.press('Backspace');
                 await page.type('input[placeholder="Search"]', item.name);
-                Logger.log(`the require item ${item.name} is searched`)
+                this.logger.log(`the require item ${item.name} is searched`)
                 await new Promise(resolve => setTimeout(resolve, 3000));
 
                 await page.waitForSelector('span.headerText');
@@ -87,8 +87,8 @@ export class ToastService {
                 }, item.name);
 
                 // Log the action
-                Logger.log(`Clicked on the span with text ${item.name}`);
-                Logger.log("Item selected");
+                this.logger.log(`Clicked on the span with text ${item.name}`);
+                this.logger.log("Item selected");
 
                 if (item.toppings.length > 0) {
                     for (const topping of item.toppings) {
@@ -109,7 +109,7 @@ export class ToastService {
                             }
                         }, topping);
 
-                        Logger.log(`Topping selected: ${topping}`);
+                        this.logger.log(`Topping selected: ${topping}`);
                         if (item.toppings_quantities[topping]) {
                             const quantity = item.toppings_quantities[topping];
                             for (let i = 1; i < quantity; i++) {
@@ -142,22 +142,22 @@ export class ToastService {
 
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 await page.waitForSelector('.addToCart', { state: "visible", timeout: 10000 });
-                Logger.log("Add to cart");
+                this.logger.log("Add to cart");
                 if (item.quantity > 1) {
                     for (let i = 1; i < item.quantity; i++) {
                         await page.waitForSelector('.addToCart [data-testid="inc-button"]', { state: "visible", timeout: 120000 });
                         await page.click('.addToCart [data-testid="inc-button"]');
-                        Logger.log("the quantity has incresed ")
+                        this.logger.log("the quantity has incresed ")
                     }
                 }
 
                 await new Promise(resolve => setTimeout(resolve, 5000));
                 await page.waitForSelector('[data-testid="menu-item-cart-cta"]', { timeout: 10000 });
                 await page.click('[data-testid="menu-item-cart-cta"]');
-                Logger.log("add to cart done")
+                this.logger.log("add to cart done")
                 await page.waitForSelector('[data-testid="modal-close-button"]', { timeout: 10000 });
                 await page.click('[data-testid="modal-close-button"]');
-                Logger.log("closed cart ")
+                this.logger.log("closed cart ")
 
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -172,7 +172,7 @@ export class ToastService {
             await page.click('[data-testid="cart-checkout-cta"]')
             await page.reload()
             // Log success
-            Logger.log("Product added to cart and checkout initiated");
+            this.logger.log("Product added to cart and checkout initiated");
 
             await new Promise(resolve => setTimeout(resolve, 2000));
             if (orderDetail.is_vehicle) {
@@ -183,7 +183,7 @@ export class ToastService {
                 await page.waitForSelector('[data-testid="input-curbsidePickupVehicle"]', { timeout: 10000 });
                 await page.type('[data-testid="input-curbsidePickupVehicle"]', `${orderDetail.car_number}`);
                 await page.type('[data-testid="input-curbsidePickupVehicleColor"]', `${orderDetail.car_color}`);
-                Logger.log("car details entered")
+                this.logger.log("car details entered")
             }
             await new Promise(resolve => setTimeout(resolve, 2000));
             if (orderDetail.promo) {
@@ -192,7 +192,7 @@ export class ToastService {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 await page.waitForSelector('[data-testid="apply-promoCode"]', { timeout: 10000 })
                 await page.click('[data-testid="apply-promoCode"]')
-                Logger.log("the promo code is applied")
+               this.logger.log("the promo code is applied")
             }
 
             // Optionally, interact with the guest checkout button
@@ -211,7 +211,7 @@ export class ToastService {
                 await cardFrame.type('[data-testid="credit-card-exp"]', process.env.CARD_EXPIRE_DATE);
                 await cardFrame.type('[data-testid="credit-card-cvv"]', process.env.CARD_CVV);
                 await cardFrame.type('[data-testid="credit-card-zip"]', process.env.CARD_ZIPCODE);
-                Logger.log("Payment details typed");
+                this.logger.log("Payment details typed");
             } else {
                 throw new Error("Failed to switch to iframe context");
             }
@@ -223,7 +223,7 @@ export class ToastService {
             await page.type('[data-testid="input-yourInfoLastName"]', `${orderDetail.user_last_name}`);
 
 
-            Logger.log("Customer details typed successfully");
+            this.logger.log("Customer details typed successfully");
             await new Promise(resolve => setTimeout(resolve, 2000));
             let buttonText = "Other"
             const selector = `button.tipButton`;
@@ -246,16 +246,16 @@ export class ToastService {
 
             await page.waitForSelector('[data-testid="input-custom-tip-amount"]', { state: "visible", timeout: 10000 });
             await page.type('[data-testid="input-custom-tip-amount"]', "0");
-            Logger.log("the tip is added")
+            this.logger.log("the tip is added")
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             await page.waitForSelector('[data-testid="basicSubmitButton"]', { state: "visible", timeout: 10000 });
             await page.click('[data-testid="basicSubmitButton"]');
-            Logger.log("the place order is clicked successfully")
+           this.logger.log("the place order is clicked successfully")
             await new Promise(resolve => setTimeout(resolve, 5000));
 
             const currentPageUrl = page.url();
-            Logger.log(`Current page URL: ${currentPageUrl}`);
+           this.logger.log(`Current page URL: ${currentPageUrl}`);
             if (currentPageUrl == "https://order.toasttab.com/online/flintridge-pizza-kitchen/confirm") {
                 await page.reload()
             }
@@ -315,7 +315,7 @@ export class ToastService {
                 };
             },subtotal,email,discount);
             
-            Logger.log(orderData);
+           this.logger.log(orderData);
             let currentDate = new Date()
             let orderResponse = new OrderResponseDto();
             let orderDataDto = new OrderDataDto();
@@ -335,7 +335,7 @@ export class ToastService {
            orderResponse.resto_id = orderDetail.resto_id
            orderResponse.toast_id = orderData.orderNumber
            orderResponse.status = "success"
-
+            this.logger.log(`the response returned for place order is ${JSON.stringify(orderResponse)}`)
             return orderResponse
     
             //await browser.close();
@@ -437,7 +437,7 @@ export class ToastService {
 
                         return found;
                     }, time);
-                    Logger.log(`the time picker ${dateFound}`)
+                    this.logger.log(`the time picker ${dateFound}`)
                     if (!dateFound) {
                         throw new Error(`The ${time} is not found in the time dropdown`);
                     }
