@@ -31,7 +31,7 @@ export class ToastService {
             await page.waitForSelector('[data-testid="diningOptionSubmit"]', { state: 'visible', timeout: 120000 });
             await new Promise(resolve => setTimeout(resolve, 2000));
 
-            let dateResponse = await this.selectdateDropdownOption("date",page, orderDetail.order_date,'[data-testid="fulfillment-date-selector"]','[data-testid="fulfillment-date-list-option"]');
+            let dateResponse = await this.selectdateDropdownOption("date", page, orderDetail.order_date, '[data-testid="fulfillment-date-selector"]', '[data-testid="fulfillment-date-list-option"]');
             if (!dateResponse.status) {
                 throw Error(`${dateResponse.error.message}`)
             }
@@ -72,44 +72,36 @@ export class ToastService {
                 this.logger.log(`the require item ${item.name} is searched`)
                 await new Promise(resolve => setTimeout(resolve, 3000));
 
-                await page.waitForSelector('span.headerText');
-
-                // Find the span with the specific text and click it
-                await page.evaluate((value) => {
-                    const spans = document.querySelectorAll('span.headerText');
-                    for (let span in spans) {
-                        if (spans[span].textContent.trim() === value) {
-                            const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
-                            spans[span].dispatchEvent(event);
-                            break;
-                        }
-                    };
-                }, item.name);
-
-                // Log the action
-                this.logger.log(`Clicked on the span with text ${item.name}`);
-                this.logger.log("Item selected");
+                let itemSelection = await this.selectTheSearchedProduct(page, item.name)
+                if (!itemSelection) {
+                    this.logger.log("the toppings are skipped as the product itself was not found")
+                    continue
+                }
 
                 if (item.toppings.length > 0) {
                     for (const topping of item.toppings) {
-
                         const selector = `div.name`;
                         // Wait for the selector to appear within the timeout period
                         await page.waitForSelector(selector, { timeout: 120000 });
 
                         // Click the element that contains the topping text
-                        await page.evaluate((topping) => {
-                            const elements = Array.from(document.querySelectorAll('div.name'));
-                            const element = elements.find(el => el.textContent.trim() === topping);
+                        try {
+                            await page.evaluate((topping) => {
+                                const elements = Array.from(document.querySelectorAll('div.name'));
+                                const element = elements.find(el => el.textContent.trim() === topping);
 
-                            if (element) {
-                                (element as HTMLElement).click();
-                            } else {
-                                throw Error(`the topping ${topping} is not found`)
-                            }
-                        }, topping);
+                                if (element) {
+                                    (element as HTMLElement).click();
+                                } else {
+                                    throw Error(`the topping ${topping} is not found`)
+                                }
+                            }, topping);
 
-                        this.logger.log(`Topping selected: ${topping}`);
+                            this.logger.log(`Topping selected: ${topping}`);
+                        } catch (error) {
+                            this.logger.log(`the error while finding the topping was ${error.message}`)
+                            continue
+                        }
                         if (item.toppings_quantities[topping]) {
                             const quantity = item.toppings_quantities[topping];
                             for (let i = 1; i < quantity; i++) {
@@ -152,10 +144,10 @@ export class ToastService {
                 }
 
                 await new Promise(resolve => setTimeout(resolve, 5000));
-                await page.waitForSelector('[data-testid="menu-item-cart-cta"]', { timeout: 10000 });
+                await page.waitForSelector('[data-testid="menu-item-cart-cta"]', { state: "visible", timeout: 10000 });
                 await page.click('[data-testid="menu-item-cart-cta"]');
                 this.logger.log("add to cart done")
-                await page.waitForSelector('[data-testid="modal-close-button"]', { timeout: 10000 });
+                await page.waitForSelector('[data-testid="modal-close-button"]', { state: "visible", timeout: 10000 });
                 await page.click('[data-testid="modal-close-button"]');
                 this.logger.log("closed cart ")
 
@@ -168,7 +160,7 @@ export class ToastService {
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             //await page.click('a[href="/online/flintridge-pizza-kitchen/checkout"]')
-            await page.waitForSelector('[data-testid="cart-checkout-cta"]', { timeout: 10000 })
+            await page.waitForSelector('[data-testid="cart-checkout-cta"]', { state: "visible", timeout: 10000 })
             await page.click('[data-testid="cart-checkout-cta"]')
             await page.reload()
             // Log success
@@ -176,9 +168,10 @@ export class ToastService {
 
             await new Promise(resolve => setTimeout(resolve, 2000));
             if (orderDetail.is_vehicle) {
-                await page.waitForSelector('.checkoutSection', { timeout: 10000 });
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                await page.click('.curbsideText');
+                await page.waitForSelector('[data-testid="curbside-pickup-section"]', { state: "visible", timeout: 10000 });
+                //await new Promise(resolve => setTimeout(resolve, 2000));
+                //await page.waitForSelector('[data-testid="curbsidePickupCheckbox"]', { state: "visible",timeout: 10000 });
+                await page.click('[data-testid="curbside-pickup-section"]');
 
                 await page.waitForSelector('[data-testid="input-curbsidePickupVehicle"]', { timeout: 10000 });
                 await page.type('[data-testid="input-curbsidePickupVehicle"]', `${orderDetail.car_number}`);
@@ -192,7 +185,7 @@ export class ToastService {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 await page.waitForSelector('[data-testid="apply-promoCode"]', { timeout: 10000 })
                 await page.click('[data-testid="apply-promoCode"]')
-               this.logger.log("the promo code is applied")
+                this.logger.log("the promo code is applied")
             }
 
             // Optionally, interact with the guest checkout button
@@ -251,11 +244,11 @@ export class ToastService {
 
             await page.waitForSelector('[data-testid="basicSubmitButton"]', { state: "visible", timeout: 10000 });
             await page.click('[data-testid="basicSubmitButton"]');
-           this.logger.log("the place order is clicked successfully")
+            this.logger.log("the place order is clicked successfully")
             await new Promise(resolve => setTimeout(resolve, 5000));
 
             const currentPageUrl = page.url();
-           this.logger.log(`Current page URL: ${currentPageUrl}`);
+            this.logger.log(`Current page URL: ${currentPageUrl}`);
             if (currentPageUrl == "https://order.toasttab.com/online/flintridge-pizza-kitchen/confirm") {
                 await page.reload()
             }
@@ -267,7 +260,7 @@ export class ToastService {
             const subtotal = await page.$eval('[data-testid="Subtotal-item-test-id"] [data-testid="item-price-amount"]', span => {
                 return span ? span.textContent.trim().replace('$', '') : '';
             });
-            
+
             const discount = await page.$eval('[data-testid="Discounts-item-test-id"] [data-testid="item-price-amount"]', span => {
                 return span ? span.textContent.trim().replace('$', '') : '';
             });
@@ -277,17 +270,17 @@ export class ToastService {
                 return text.replace('Your order will be ready', '').trim();
             });
 
-            
 
-            const orderData = await page.evaluate((subtotal,email,discount) => {
+
+            const orderData = await page.evaluate((subtotal, email, discount) => {
                 const extractInnerText = (selector) => {
                     const element = document.querySelector(selector);
                     return element ? element.textContent.trim() : '';
                 };
-            
+
                 const extractEmail = (selector) => {
                     const element = document.querySelector(selector);
-                    return element ? element.textContent.trim():'';
+                    return element ? element.textContent.trim() : '';
                 };
 
                 const extractOrderItems = () => {
@@ -296,31 +289,31 @@ export class ToastService {
                         const name = orderItemElement.querySelector('.name')?.textContent?.trim() || '';
                         const quantity = orderItemElement.querySelector('.quantity')?.textContent?.trim() || '';
                         const price = orderItemElement.querySelector('[data-testid="price"]')?.textContent?.trim() || '';
-            
+
                         // const mods = Array.from(orderItemElement.querySelectorAll('.mod')).map(mod => mod.textContent.trim());
                         // const modifications = mods.filter(mod => mod !== '');
-            
+
                         items.push({ name, quantity, price });
                     });
                     return items;
                 };
 
-               
-            
+
+
                 return {
                     orderItems: extractOrderItems(),
                     total: extractInnerText('.cart-flex-row .totalPrice:last-child'),
                     orderNumber: extractInnerText('.checkoutSectionHeader .checkNumber'),
                     orderTime: extractInnerText('.sectionRow .icon[alt="Order time"] + *')
                 };
-            },subtotal,email,discount);
-            
-           this.logger.log(orderData);
+            }, subtotal, email, discount);
+
+            this.logger.log(orderData);
             let currentDate = new Date()
             let orderResponse = new OrderResponseDto();
             let orderDataDto = new OrderDataDto();
             let cartOrderItem = new CartOrderItemDto();
-            
+
             orderDataDto.cart_order_items = orderData.orderItems
             orderDataDto.discounts = discount
             orderDataDto.subtotal = subtotal
@@ -328,16 +321,16 @@ export class ToastService {
             orderDataDto.order_id = orderData.orderNumber
             orderDataDto.receipt_email = email
             orderDataDto.roma_order_datetime = this.formatDate(currentDate)
-           // orderDataDto.
+            // orderDataDto.
 
-           orderResponse.data = orderDataDto
-           orderResponse.message = `${orderDetail.resto_id} Order Place Successful with this Order ${orderData.orderNumber}`
-           orderResponse.resto_id = orderDetail.resto_id
-           orderResponse.toast_id = orderData.orderNumber
-           orderResponse.status = "success"
+            orderResponse.data = orderDataDto
+            orderResponse.message = `${orderDetail.resto_id} Order Place Successful with this Order ${orderData.orderNumber}`
+            orderResponse.resto_id = orderDetail.resto_id
+            orderResponse.toast_id = orderData.orderNumber
+            orderResponse.status = "success"
             this.logger.log(`the response returned for place order is ${JSON.stringify(orderResponse)}`)
             return orderResponse
-    
+
             //await browser.close();
 
             //return "Order placed successfully";
@@ -366,21 +359,48 @@ export class ToastService {
         const year = date.getFullYear();
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
-    
+
         return `${day}-${month}-${year} ${hours}:${minutes}`;
     }
 
-    async selectdateDropdownOption(type,page,optionText, dropDown, dropOptions) {
+    async selectTheSearchedProduct(page, itemName) {
+        try {
+            await page.waitForSelector('span.headerText');
+
+            // Find the span with the specific text and click it
+            await page.evaluate((value) => {
+                const spans = document.querySelectorAll('span.headerText');
+                for (let span in spans) {
+                    if (spans[span].textContent.trim() === value) {
+                        const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+                        spans[span].dispatchEvent(event);
+                        break;
+                    }
+                };
+            }, itemName);
+
+            // Log the action
+            this.logger.log(`Clicked on the span with text ${itemName}`);
+            this.logger.log("Item selected");
+            return true
+        } catch (error) {
+            this.logger.error(`the error while selecting the product is ${error.message}`)
+            this.logger.log(`the searched item ${itemName} was not found`)
+            return false
+        }
+    }
+
+    async selectdateDropdownOption(type, page, optionText, dropDown, dropOptions) {
         try {
             // Click to open the dropdown
             await page.waitForSelector(dropDown, { state: "visible", timeout: 60000 });
             await page.click(dropDown);
-            
+
             // Wait for the dropdown content to be visible
             //await page.waitForSelector('div[data-testid="dropdown-content"]:not(.hide)');
 
             // Select the dropdown option by finding the element with the text
-            const dateFound = await page.evaluate((optionText,dropOptions) => {
+            const dateFound = await page.evaluate((optionText, dropOptions) => {
                 const options = document.querySelectorAll(dropOptions);
                 let found = false;
 
@@ -393,7 +413,7 @@ export class ToastService {
                 });
 
                 return found;
-            }, optionText,dropOptions);
+            }, optionText, dropOptions);
 
             if (!dateFound) {
                 throw new Error(`The ${optionText} is not found in the ${type} dropdown`);
