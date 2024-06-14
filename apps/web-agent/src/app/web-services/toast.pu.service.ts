@@ -3,12 +3,15 @@ import { OrderDto } from '../dtos/order.dto';
 import { CartOrderItemDto } from '../dtos/response/cartData';
 import { OrderResponseDto } from '../dtos/response/orderResponse';
 import { OrderDataDto } from '../dtos/response/orderData';
+import { MailService } from '../utills/mail-service';
 const puppeteer = require('puppeteer');
 
 
 @Injectable()
 export class ToastService {
     private readonly logger: Logger = new Logger(ToastService.name)
+    constructor(private readonly mailService: MailService,
+        ) {}
     async placeOrder(orderDetail: OrderDto) {
         let url = process.env.TOASTURL;
         const browser = await puppeteer.launch({ headless: false })
@@ -75,7 +78,13 @@ export class ToastService {
                 let itemSelection = await this.selectTheSearchedProduct(page, item.name)
                 if (!itemSelection) {
                     this.logger.log("the toppings are skipped as the product itself was not found")
-                    continue
+                    if(orderDetail.items.length<1){
+                        continue
+                    }else{
+                        this.logger.log(`the given item ${item.name} is not found when searched`)
+                        throw Error(`the ordered item ${item.name} was not found`)
+                    }
+                    
                 }
 
                 if (item.toppings.length > 0) {
@@ -99,7 +108,7 @@ export class ToastService {
 
                             this.logger.log(`Topping selected: ${topping}`);
                         } catch (error) {
-                            this.logger.log(`the error while finding the topping was ${error.message}`)
+                            this.logger.error(`the error while finding the topping was ${error.message}`)
                             continue
                         }
                         if (item.toppings_quantities[topping]) {
@@ -386,6 +395,7 @@ export class ToastService {
         } catch (error) {
             this.logger.error(`the error while selecting the product is ${error.message}`)
             this.logger.log(`the searched item ${itemName} was not found`)
+            await this.mailService.sendMail("the missing times",`${itemName} is not found`)
             return false
         }
     }
@@ -420,7 +430,7 @@ export class ToastService {
             }
             return { status: true, error: null }
         } catch (error) {
-            Logger.error(`Error selecting ${type} from dropdown: ${error.message}`);
+            this.logger.error(`Error selecting ${type} from dropdown: ${error.message}`);
             return { status: false, error: error };
         }
     }
@@ -429,23 +439,57 @@ export class ToastService {
     async selectTimeFromDropdown(page, time) {
         try {
             const dropdowns = await page.$$('div.dropDown.withBorder');
-
+    
             // Iterate through each dropdown
             for (const dropdown of dropdowns) {
                 // Get the label text of the dropdown
                 const labelText = await dropdown.$eval('.dropDownLabel', label => label.textContent);
+                
                 // Check if the label contains "GMT"
                 if (labelText.includes("GMT") || labelText == "ASAP") {
                     // Click to open the dropdown
                     await dropdown.click();
-
+    
                     // Wait for the dropdown content to be visible
-                    //await page.waitForSelector('div[data-testid="dropdown-content"]:not(.hide)');
                     await page.waitForSelector('[data-testid="fulfillment-time-selector"]');
-
-                    const dateFound = await page.evaluate((optionText) => {
+                    
+                    let dateFound = await page.evaluate((optionText) => {
                         const options = document.querySelectorAll('div[data-testid="dropdown-option"]');
                         let found = false;
+                       function findClosestTime (time, options) {
+                            // Convert time string to Date object
+                            function convertToDate(timeStr) {
+                                const [time, period, timezone] = timeStr.split(' ');
+                                const [hours, minutes] = time.split(':');
+                                const isPM = period === 'PM' && hours !== '12';
+                                const date = new Date();
+                                date.setHours(isPM ? parseInt(hours, 10) + 12 : parseInt(hours, 10));
+                                date.setMinutes(parseInt(minutes, 10));
+                                return date;
+                            }
+                        
+                            const givenTime = convertToDate(time);
+                        
+                            // Helper function to get time difference in minutes
+                            function getTimeDifference(date1, date2) {
+                                return Math.abs((date1 - date2) / (1000 * 60));
+                            }
+                        
+                            let closestTime = null;
+                            let minDifference = Infinity;
+                        
+                            for (const option of options) {
+                                const optionTime = convertToDate(option);
+                                const difference = getTimeDifference(givenTime, optionTime);
+                        
+                                if (difference <= 30) {
+                                    minDifference = difference;
+                                    closestTime = option;
+                                }
+                            }
+                        
+                            return closestTime;
+                        }
 
                         options.forEach(option => {
                             if (option.textContent.includes(optionText)) {
@@ -454,19 +498,32 @@ export class ToastService {
                                 found = true;
                             }
                         });
-
-                        return found;
+                        if(!found){
+                            options.forEach(option => {
+                                let closetTime = findClosestTime(optionText, Array.from(options).map(option => option.textContent))
+                                if (option.textContent.includes(closetTime)) {
+                                    const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+                                    option.dispatchEvent(event);
+                                    found = true;
+                            }
+                        })
+                    }
+    
+                        return {status: found, options: Array.from(options).map(option => option.textContent)};
                     }, time);
-                    this.logger.log(`the time picker ${dateFound}`)
-                    if (!dateFound) {
+    
+                    this.logger.log(`The time picker result: ${JSON.stringify(dateFound)}`);
+    
+                    if (!dateFound.status) {
                         throw new Error(`The ${time} is not found in the time dropdown`);
                     }
                 }
             }
-            return { status: true, error: null }
+            return { status: true, error: null };
         } catch (error) {
-            Logger.error(`the error in selecting time from dropdowm ${error.message}`)
-            return { status: false, error: error }
+            this.logger.error(`Error in selecting time from dropdown: ${error.message}`);
+            return { status: false, error: error };
         }
     }
-}
+     
+    }
