@@ -4,6 +4,7 @@ import { CartOrderItemDto } from '../dtos/response/cartData';
 import { OrderResponseDto } from '../dtos/response/orderResponse';
 import { OrderDataDto } from '../dtos/response/orderData';
 import { MailService } from '../utills/mail-service';
+import { OrderTransactionService } from '../dbservices/orderDetials.service';
 const puppeteer = require('puppeteer');
 
 
@@ -11,8 +12,10 @@ const puppeteer = require('puppeteer');
 export class ToastService {
     private readonly logger: Logger = new Logger(ToastService.name)
     constructor(private readonly mailService: MailService,
+    private readonly orderTransactionService: OrderTransactionService
         ) {}
     async placeOrder(orderDetail: OrderDto) {
+        await this.orderTransactionService.createOrderTransaction({order_id:orderDetail.resto_id,request:JSON.stringify(orderDetail)})
         let url = process.env.TOASTURL;
         const browser = await puppeteer.launch({ headless: false })
         try {
