@@ -10,8 +10,8 @@ export class OrderTransactionService {
     private orderTransactionRepository: Repository<OrderDetails>,
   ) {}
 
-  async createOrderTransaction(order_id: string, request: string): Promise<OrderDetails> {
-    const newOrderTransaction = this.orderTransactionRepository.create({ order_id, request });
+  async createOrderTransaction(orderData){
+    const newOrderTransaction = this.orderTransactionRepository.create(orderData);
     return this.orderTransactionRepository.save(newOrderTransaction);
   }
 
