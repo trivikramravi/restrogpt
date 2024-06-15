@@ -23,8 +23,8 @@ export class OrderTransactionService {
     return this.orderTransactionRepository.findOne(id);
   }
 
-  async updateOrderTransaction(order_id: string, updateData: Partial<OrderDetails>): Promise<void> {
-    await this.orderTransactionRepository.update({ order_id }, updateData);
+  async updateOrderTransaction(order_id, updateData: Partial<OrderDetails>): Promise<void> {
+    await this.orderTransactionRepository.update(order_id, updateData);
   }
 
   async remove(id: number): Promise<void> {

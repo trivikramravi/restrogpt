@@ -86,8 +86,7 @@ export class ToastService {
                     }else{
                         this.logger.log(`the given item ${item.name} is not found when searched`)
                         throw Error(`the ordered item ${item.name} was not found`)
-                    }
-                    
+                    }     
                 }
 
                 if (item.toppings.length > 0) {
@@ -310,8 +309,6 @@ export class ToastService {
                     return items;
                 };
 
-
-
                 return {
                     orderItems: extractOrderItems(),
                     total: extractInnerText('.cart-flex-row .totalPrice:last-child'),
@@ -341,6 +338,7 @@ export class ToastService {
             orderResponse.toast_id = orderData.orderNumber
             orderResponse.status = "success"
             this.logger.log(`the response returned for place order is ${JSON.stringify(orderResponse)}`)
+            this.orderTransactionService.updateOrderTransaction({order_id:orderResponse.resto_id},{response:JSON.stringify(orderResponse)})
             return orderResponse
 
             //await browser.close();
