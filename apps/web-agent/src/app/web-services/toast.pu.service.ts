@@ -5,6 +5,7 @@ import { OrderResponseDto } from '../dtos/response/orderResponse';
 import { OrderDataDto } from '../dtos/response/orderData';
 import { MailService } from '../utills/mail-service';
 import { OrderTransactionService } from '../dbservices/orderDetials.service';
+import { ItemDto } from '../dtos/item.dto';
 const puppeteer = require('puppeteer');
 
 
@@ -26,9 +27,9 @@ export class ToastService {
             await page.setUserAgent(ua);
 
             this.logger.log("Launch the site")
-            await page.goto(url, { waitUntil: 'networkidle2' })
+            await page.goto(url, { waitUntil: 'networkidle2',timeout:120000 })
             this.logger.log("site launched")
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
             /****************** Updating pickup time ***********************/
             await page.waitForSelector('[data-testid="primary-cta-oo-options-btn"]', { timeout: 120000 });
@@ -61,9 +62,9 @@ export class ToastService {
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             this.logger.log("Pickup time updated");
-
+            let failedItems:ItemDto[] = []
             for (let item of orderDetail.items) {
-
+                let failedItem = new ItemDto()
                 await page.waitForSelector('input[placeholder="Search"]', { visible: true, timeout: 60000 });
                 await page.click('input[placeholder="Search"]');
 
@@ -81,10 +82,13 @@ export class ToastService {
                 let itemSelection = await this.selectTheSearchedProduct(page, item.name)
                 if (!itemSelection) {
                     this.logger.log("the toppings are skipped as the product itself was not found")
-                    if(orderDetail.items.length<1){
+                    failedItem.name = item.name
+                    failedItems.push(failedItem)
+                    if(orderDetail.items.length>failedItems.length){
                         continue
                     }else{
                         this.logger.log(`the given item ${item.name} is not found when searched`)
+                        await this.mailService.sendMail(`missing Items in order ${orderDetail.resto_id}`,failedItems)
                         throw Error(`the ordered item ${item.name} was not found`)
                     }     
                 }
@@ -111,6 +115,8 @@ export class ToastService {
                             this.logger.log(`Topping selected: ${topping}`);
                         } catch (error) {
                             this.logger.error(`the error while finding the topping was ${error.message}`)
+                            failedItem.name = item.name
+                            failedItem.toppings.push(topping)
                             continue
                         }
                         if (item.toppings_quantities[topping]) {
@@ -160,10 +166,12 @@ export class ToastService {
                 this.logger.log("add to cart done")
                 await page.waitForSelector('[data-testid="modal-close-button"]', { state: "visible", timeout: 10000 });
                 await page.click('[data-testid="modal-close-button"]');
-                this.logger.log("closed cart ")
+                this.logger.log("closed cart")
 
                 await new Promise(resolve => setTimeout(resolve, 2000));
-
+                if(failedItem.name != undefined || failedItem.name != null){
+                    failedItems.push(failedItem)
+                }
             }
 
             await page.waitForSelector('.targetAction', { timeout: 10000 });
@@ -171,9 +179,17 @@ export class ToastService {
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             //await page.click('a[href="/online/flintridge-pizza-kitchen/checkout"]')
-            await page.waitForSelector('[data-testid="cart-checkout-cta"]', { state: "visible", timeout: 10000 })
+            try{
+            await page.waitForSelector('[data-testid="cart-checkout-cta"]', { state: "visible", timeout: 60000 })
             await page.click('[data-testid="cart-checkout-cta"]')
             await page.reload()
+            }catch(error){
+                const itemWithMissingRequiredToppings = this.getRequiredToppings([], orderDetail.items, failedItems);
+                if(failedItems.length>0 || itemWithMissingRequiredToppings.length>0){
+                await this.mailService.sendMail(`missing Items in order ${orderDetail.resto_id}`,failedItems,itemWithMissingRequiredToppings)
+            }
+            throw Error(error.message)
+            }
             // Log success
             this.logger.log("Product added to cart and checkout initiated");
 
@@ -265,9 +281,11 @@ export class ToastService {
             }
             //await page.waitForSelector('.checkoutErrorModalContent',{ state: "visible", timeout: 50000 })
             await page.waitForSelector('[data-testid="orderItem"]', { state: "visible", timeout: 100000 });
+            
             const email = await page.$eval('.fixedSection div:first-child', element => {
                 return element ? element.textContent.trim() : '';
             });
+            
             const subtotal = await page.$eval('[data-testid="Subtotal-item-test-id"] [data-testid="item-price-amount"]', span => {
                 return span ? span.textContent.trim().replace('$', '') : '';
             });
@@ -276,23 +294,23 @@ export class ToastService {
                 return span ? span.textContent.trim().replace('$', '') : '';
             });
 
-            const dateAndTime = await page.$eval('.sectionRow', div => {
-                const text = div.textContent.trim();
-                return text.replace('Your order will be ready', '').trim();
-            });
+            // const dateAndTime = await page.$eval('.sectionRow', div => {
+            //     const text = div.textContent.trim();
+            //     return text.replace('Your order will be ready', '').trim();
+            // });
 
 
 
-            const orderData = await page.evaluate((subtotal, email, discount) => {
+            const orderData = await page.evaluate(()=>{
                 const extractInnerText = (selector) => {
                     const element = document.querySelector(selector);
                     return element ? element.textContent.trim() : '';
                 };
 
-                const extractEmail = (selector) => {
-                    const element = document.querySelector(selector);
-                    return element ? element.textContent.trim() : '';
-                };
+                // const extractEmail = (selector) => {
+                //     const element = document.querySelector(selector);
+                //     return element ? element.textContent.trim() : '';
+                // };
 
                 const extractOrderItems = () => {
                     const items = [];
@@ -315,7 +333,7 @@ export class ToastService {
                     orderNumber: extractInnerText('.checkoutSectionHeader .checkNumber'),
                     orderTime: extractInnerText('.sectionRow .icon[alt="Order time"] + *')
                 };
-            }, subtotal, email, discount);
+            });
 
             this.logger.log(orderData);
             let currentDate = new Date()
@@ -339,6 +357,10 @@ export class ToastService {
             orderResponse.status = "success"
             this.logger.log(`the response returned for place order is ${JSON.stringify(orderResponse)}`)
             this.orderTransactionService.updateOrderTransaction({order_id:orderResponse.resto_id},{response:JSON.stringify(orderResponse)})
+            const itemWithMissingRequiredToppings = this.getRequiredToppings(orderData.orderItems, orderDetail.items, failedItems);
+            if(failedItems.length>0 || itemWithMissingRequiredToppings.length>0){
+                await this.mailService.sendMail(`missing Items in order ${orderDetail.resto_id}`,failedItems,itemWithMissingRequiredToppings)
+            }
             return orderResponse
 
             //await browser.close();
@@ -396,7 +418,6 @@ export class ToastService {
         } catch (error) {
             this.logger.error(`the error while selecting the product is ${error.message}`)
             this.logger.log(`the searched item ${itemName} was not found`)
-            await this.mailService.sendMail("the missing times",`${itemName} is not found`)
             return false
         }
     }
@@ -527,4 +548,39 @@ export class ToastService {
         }
     }
      
+     getRequiredToppings(finalItems, requestedItems, failedItems) {
+        // Extract names from finalItems and failedItems
+        try{
+            this.logger.log(`the finalItems are ${JSON.stringify(finalItems)}, the requiredItems`)
+        let finalItemNames
+        if(finalItems.length>0 && finalItems[0].name != undefined){
+        finalItemNames = new Set(finalItems.map(item => item.name));
+    }else{
+        finalItemNames = []
     }
+        let failedItemNames
+        if(failedItems.length>0 && failedItems[0].name!= undefined){
+        failedItemNames = new Set(failedItems.map(item => item.name));
+    }else{
+        failedItemNames= []
+    }
+        // Initialize requiredToppings
+        const requiredToppings = [];
+      
+        // Iterate over requestTimes and find names not in finalItems or failedItems
+        requestedItems.forEach(item => {
+          if (!finalItemNames.has(item.name) && !failedItemNames.has(item.name)) {
+            requiredToppings.push(item.name);
+          }
+        });
+      
+        return requiredToppings;
+      }catch(error){
+        this.logger.log(`The error in getRequiredToppings is ${error.message}`)
+        return [];
+      }
+    }
+    }
+    
+      
+     
