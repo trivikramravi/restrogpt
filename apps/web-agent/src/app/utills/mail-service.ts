@@ -21,12 +21,46 @@ export class MailService {
     });
   }
 
-  async sendMail(subject: string, text: string) {
+  async sendMail(subject: string, failedItems: any[] = [], requiredItems: string[] = []) {
+    let html = '';
+
+    if (failedItems.length > 0 || requiredItems.length > 0) {
+      html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item Status</title>
+</head>
+<body>
+    <h1>Item Status Notification</h1>
+    ${failedItems.length > 0 ? `
+      ${failedItems.map(item => item.name ? `
+        ${item.toppings.length === 0 ? `<p>The item <strong>${item.name}</strong> is not found.</p>` : ''}
+        ${item.toppings.length > 0 ? `
+          <p>The following toppings for the item <strong>${item.name}</strong> are not found:</p>
+          <ul>
+            ${item.toppings.map(topping => `<li>${topping}</li>`).join('')}
+          </ul>
+        ` : ''}
+      ` : '').join('')}` : ''}
+    ${requiredItems.length > 0 ? `
+      <p>The following items did not have mandatory toppings:</p>
+      <ul>
+        ${requiredItems.map(item => `<li>${item}</li>`).join('')}
+      </ul>
+    ` : ''}
+</body>
+</html>
+`;
+    }
+
     const mailOptions = {
-      from:'"Restogpt" <restogpt@orderbyte.io>', //this.configService.get<string>('SENDER_MAIL'),
-      to: "ravitest2@yopmail.com",//this.configService.get<string>('RECIVER_MAIL'),
+      from: '"Restogpt" <restogpt@orderbyte.io>',
+      to: "ravitest2@yopmail.com",
       subject,
-      text,
+      html,
     };
 
     try {
@@ -38,4 +72,5 @@ export class MailService {
       throw error;
     }
   }
+
 }
