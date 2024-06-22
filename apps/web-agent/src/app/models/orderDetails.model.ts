@@ -5,7 +5,7 @@ export class OrderDetails {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, unique: true })
   order_id: string;
 
   @Column({ type: 'text' })
@@ -14,29 +14,32 @@ export class OrderDetails {
   @Column({ type: 'text',nullable:true })
   response: string;
 
-  @Column({ type: 'varchar', length: 255,nullable:true })
+  @Column({ type: 'varchar', length: 255 })
   orderplacedby: string;
 
   @Column({ type: 'int', default: 0,nullable:true })
   retry_count: number;
 
-  @Column({ type: 'text', nullable: true })
-  comments_activity_log: string;
-
   @Column({ type: 'boolean', default: false,nullable:true })
   isorderplaced: boolean;
 
-  @Column({ type: 'varchar', length: 255,nullable:true })
+  @Column({ type: 'varchar', length: 255 })
   orderstatus: string;
 
-  @Column({ type: 'boolean', default: false,nullable:true })
+  @Column({ type: 'boolean', default: false })
   ispaymentfailed: boolean;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  transactionID: string;
+  transaction_id: string;
 
   @Column({ type: 'varchar', length: 255 ,nullable:true})
-  customer_Email: string;
+  customer_email: string;
+
+  @Column({ type: 'varchar', length: 255 ,nullable:true})
+  customer_first_name: string;
+
+  @Column({ type: 'varchar', length: 255 ,nullable:true})
+  customer_Last_name: string;
 
   @Column({ type: 'varchar', length: 15,nullable:true })
   customer_phone: string;
@@ -58,4 +61,22 @@ export class OrderDetails {
 
   @Column({ type: 'varchar', length: 255,nullable:true })
   meal_time: string;
+
+  @Column({ type: 'varchar', length: 255,nullable:true })
+  pickup_date: string;
+
+  @Column({ type: 'varchar', length: 255,nullable:true })
+  pickup_time: string;
+
+  @Column({ type: 'varchar', length: 255,nullable:true })
+  subtotal: string;
+
+  @Column({ type: 'varchar', length: 255,nullable:true })
+  discount: string;
+
+  @Column({ type: 'varchar', length: 255,nullable:true })
+  order_placed_at: string;
+
+  
+
 }
