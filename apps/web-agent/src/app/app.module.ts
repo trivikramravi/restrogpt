@@ -8,7 +8,12 @@ import { SoModuleService } from './web-services/so.modules.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrderTransactionService } from './dbservices/orderDetials.service';
 import { OrderDetails } from './models/orderDetails.model';
-import { join } from 'path';
+import { OrderLineItems } from './models/orderLineItems.model';
+import { OrderLineItemsPlaced } from './models/orderLineItemsPlaced.model';
+import { ErrorLog } from './models/errorLog.model';
+import { ErrorLogService } from './dbservices/errorLog.service';
+import { OrderPlacedLineItemsService } from './dbservices/orderPlaced.service';
+import { OrderLineItemsService } from './dbservices/orderLineItems.service';
 
 @Module({
   imports: [
@@ -20,12 +25,12 @@ import { join } from 'path';
       username: process.env.DB_USERNAME,
       password: process.env.DB_PASSWORD,
       database: process.env.DB,
-      entities: [OrderDetails],
+      entities: [OrderDetails,OrderLineItems,OrderLineItemsPlaced,ErrorLog],
       synchronize: true,
     }),
-    TypeOrmModule.forFeature([OrderDetails])
+    TypeOrmModule.forFeature([OrderDetails,OrderLineItems,OrderLineItemsPlaced,ErrorLog])
   ],
   controllers: [AppController],
-  providers: [AppService,FlintridgeService,ToastService,OrderTransactionService,MailService]
+  providers: [AppService,OrderTransactionService,ErrorLogService,OrderLineItemsService,OrderPlacedLineItemsService,MailService,FlintridgeService,ToastService]
 })
 export class AppModule {}

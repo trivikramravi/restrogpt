@@ -19,15 +19,15 @@ export class OrderTransactionService {
     return this.orderTransactionRepository.find();
   }
 
-  async findOne(id): Promise<OrderDetails> {
-    return this.orderTransactionRepository.findOne(id);
+  async findOne(condition): Promise<OrderDetails> {
+    return this.orderTransactionRepository.findOne({where:condition});
   }
 
   async updateOrderTransaction(order_id, updateData: Partial<OrderDetails>): Promise<void> {
     await this.orderTransactionRepository.update(order_id, updateData);
   }
 
-  async remove(id: number): Promise<void> {
-    await this.orderTransactionRepository.delete(id);
+  async remove(condition): Promise<void> {
+    await this.orderTransactionRepository.delete(condition);
   }
 }
