@@ -25,11 +25,11 @@ export class ToastService {
 
         await this.updateDb(orderDetail)
         let orderStatus = "success"
-        // let attempts = 0;
-        // const maxAttempts = 3;
-        // const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+        let attempts = 0;
+        const maxAttempts = 3;
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-        // while (attempts < maxAttempts) {
+        while (attempts < maxAttempts) {
             let url = process.env.TOASTURL;
             const browser = await puppeteer.launch({ headless: false })
             try {
@@ -284,22 +284,19 @@ export class ToastService {
                 await page.type('[data-testid="input-yourInfoFirstName"]', `${orderDetail.user_first_name}`);
                 await page.type('[data-testid="input-yourInfoLastName"]', `${orderDetail.user_last_name}`);
 
-
                 this.logger.log("Customer details typed successfully");
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                let buttonText = "Other"
-                const selector = `button.tipButton`;
 
                 // Wait for the buttons to become visible
-                await page.waitForSelector(selector, { state: "visible", timeout: 100000 });
+                await page.waitForSelector(`button.tipButton`, { state: "visible", timeout: 100000 });
 
                 // Get all buttons with the class 'tipButton'
-                const buttons = await page.$$(selector);
+                const buttons = await page.$$(`button.tipButton`);
 
                 // Iterate over the buttons and find the one with the desired text content
                 for (const button of buttons) {
                     const text = await button.evaluate(node => node.textContent.trim());
-                    if (text === buttonText) {
+                    if (text === "Other") {
                         // Click the button
                         await button.click();
                         break;// Exit the loop after clicking the button
@@ -358,6 +355,7 @@ export class ToastService {
 
                             const mods = Array.from(orderItemElement.querySelectorAll('.mod')).map(mod => mod.textContent.trim());
                             const modifications = mods.filter(mod => mod !== '');
+
                             const toppingsObj = {};
                             modifications.forEach(topping => {
           const match = topping.match(/^(\d*)(.*)$/);
@@ -365,21 +363,6 @@ export class ToastService {
           const name = match[2].trim();
           toppingsObj[name] = quantity;
         });
-                            // const mods = Array.from(orderItemElement.querySelectorAll('.mod')).map(mod => {
-                            //     const modNameElement = mod.childNodes[0];
-                            //     const modName = modNameElement && modNameElement.nodeType === Node.TEXT_NODE ? modNameElement.textContent.trim() : modNameElement ? modNameElement.nodeValue.trim() : '';
-                            //     const modQuantityElement = mod.querySelector('.quantity');
-                            //     const modQuantity = modQuantityElement ? parseInt(modQuantityElement.textContent.trim(), 10) : 1;
-                            //     return { modName, modQuantity };
-                            // });
-                    
-                            // const modifications = mods.reduce((acc, { modName, modQuantity }) => {
-                            //     if (modName) {
-                            //         acc[modName] = modQuantity;
-                            //     }
-                            //     return acc;
-                            // }, {});
-                    
                             items.push({ name, quantity, price, toppings: toppingsObj });
                         });
                         return items;
@@ -434,10 +417,10 @@ export class ToastService {
                 return orderResponse
 
             } catch (error) {
-                //if (attempts === maxAttempts) {
-                   // this.logger.error(`Order placement failed after ${maxAttempts} attempts: ${error.message}`);
-                    //this.logger.error(`Error in ToastService is: ${error.message}`);
-                    //await browser.close();
+                if (attempts === maxAttempts) {
+                   this.logger.error(`Order placement failed after ${maxAttempts} attempts: ${error.message}`);
+                    this.logger.error(`Error in ToastService is: ${error.message}`);
+                    await browser.close();
                     let errorData = {
                         "resto_id": orderDetail.resto_id,
                         "error": {
@@ -452,21 +435,22 @@ export class ToastService {
                     return errorData;
 
                     //return { status: "Failed", error: error.message };
-                // } else {
-                //     this.logger.error(`Order placement attempt ${attempts} failed: ${error.message}. Retrying...`);
-                //     let errorLog = {
-                //         order_id: orderDetail.resto_id,
-                //         reason: "the order is not placed due to an error",
-                //         error_log: error.message,
-                //         order_by: "Roma-P"
-                //     }
-                //     await this.errorLogService.createOrderTransaction(errorLog)
-                //     await this.orderTransactionService.updateOrderTransaction({order_id:orderDetail.resto_id},{retry_count:attempts})
-                //     await delay(5000); // Optional: delay before retrying
-                // }
+                } else {
+                    this.logger.error(`Order placement attempt ${attempts} failed: ${error.message}. Retrying...`);
+                    let errorLog = {
+                        order_id: orderDetail.resto_id,
+                        reason: "the order is not placed due to an error",
+                        error_log: error.message,
+                        order_by: "Roma-P"
+                    }
+                    await this.errorLogService.createOrderTransaction(errorLog)
+                    await this.orderTransactionService.updateOrderTransaction({order_id:orderDetail.resto_id},{retry_count:attempts})
+                    await browser.close()
+                    await delay(5000); // Optional: delay before retrying
+                }
             }
         }
-    //}
+    }
 
     formatDate(date: Date): string {
         const day = String(date.getDate()).padStart(2, '0');
@@ -477,17 +461,6 @@ export class ToastService {
 
         return `${day}-${month}-${year} ${hours}:${minutes}`;
     }
-
-    convertToppings(toppings:any) {
-        const toppingsObj = {};
-        toppings.forEach(topping => {
-          const match = topping.match(/^(\d*)(.*)$/);
-          const quantity = match[1] ? parseInt(match[1], 10) : 1;
-          const name = match[2].trim();
-          toppingsObj[name] = quantity;
-        });
-        return toppingsObj;
-      }
 
     async selectTheSearchedProduct(page, itemName) {
         try {
