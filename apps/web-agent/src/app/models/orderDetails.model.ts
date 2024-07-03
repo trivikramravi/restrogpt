@@ -36,6 +36,9 @@ export class OrderDetails {
   customer_email: string;
 
   @Column({ type: 'varchar', length: 255 ,nullable:true})
+  customer_comment: string;
+
+  @Column({ type: 'varchar', length: 255 ,nullable:true})
   customer_first_name: string;
 
   @Column({ type: 'varchar', length: 255 ,nullable:true})
