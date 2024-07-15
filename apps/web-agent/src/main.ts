@@ -14,9 +14,10 @@ async function bootstrap() {
   const globalPrefix = 'WA';
   app.setGlobalPrefix(globalPrefix);
   const port = process.env.PORT || 3000;
-  await app.listen(port);
+  const host = process.env.URL_HOST || '0.0.0.0'
+  await app.listen(port, host);
   Logger.log(
-     `Application is running on: http://localhost:${port}/${globalPrefix}`
+     `Application is running on: http://${host}:${port}/${globalPrefix}`
   );
 }
 

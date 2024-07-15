@@ -35,7 +35,9 @@ export class ToastService {
 
         
 
-        while (attempts < maxAttempts) {
+        
+
+       while (attempts < maxAttempts) {
             let url = process.env.TOASTURL;
             const browser = await puppeteer.launch({ headless: true })
             try {
@@ -319,6 +321,8 @@ export class ToastService {
                 await page.type('[data-testid="input-custom-tip-amount"]', "0");
                 this.logger.log("the tip is added")
                 await new Promise(resolve => setTimeout(resolve, 2000));
+                await page.waitForSelector('[data-testid="packagingOptionsItem"]', { state: "visible", timeout: 10000 });
+                await page.click('[data-testid="packagingOptionsItem"]');
 
                 await page.waitForSelector('[data-testid="basicSubmitButton"]', { state: "visible", timeout: 10000 });
                 await page.click('[data-testid="basicSubmitButton"]');

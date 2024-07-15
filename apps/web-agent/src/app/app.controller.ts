@@ -4,12 +4,14 @@ import { OrderRequestDto } from './dtos/order-request.dto';
 import { FlintridgeService } from './web-services/flintridge.service';
 import { ToastService } from './web-services/toast.pu.service';
 import { OrderDto } from './dtos/order.dto';
+import { UberService } from './web-services/uber.service';
 
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService,
     private readonly flintridgeService:FlintridgeService,
-    private readonly toastService:ToastService
+    private readonly toastService:ToastService,
+    private readonly uberService:UberService
   ) {}
 
   @Get()
@@ -27,6 +29,9 @@ export class AppController {
       //   return this.flintridgeService.placeOrder(request);
       case 'toast':
         return this.toastService.placeOrder(request);
+      // Add more cases for other state codes if needed
+      case 'uber':
+        return this.uberService.placeOrder(request);
       // Add more cases for other state codes if needed
       default:
         throw new Error('Invalid Restaurent');
