@@ -28,6 +28,7 @@ import { UberService } from './web-services/uber.service';
       database: process.env.DB,
       entities: [OrderDetails,OrderLineItems,OrderLineItemsPlaced,ErrorLog],
       synchronize: true,
+      logging:true
     }),
     TypeOrmModule.forFeature([OrderDetails,OrderLineItems,OrderLineItemsPlaced,ErrorLog])
   ],
@@ -36,6 +37,10 @@ import { UberService } from './web-services/uber.service';
 })
 export class AppModule {
   constructor() {
-    //console.log('AppModule initialized');
+    console.log(process.env.HOST),
+    console.log(Number(process.env.DB_PORT))
+    console.log(process.env.DB_USERNAME)
+    console.log(process.env.DB_PASSWORD)
+    console.log(process.env.DB)
 }
 }
