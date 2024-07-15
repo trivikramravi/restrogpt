@@ -14,6 +14,7 @@ import { ErrorLog } from './models/errorLog.model';
 import { ErrorLogService } from './dbservices/errorLog.service';
 import { OrderPlacedLineItemsService } from './dbservices/orderPlaced.service';
 import { OrderLineItemsService } from './dbservices/orderLineItems.service';
+import { UberService } from './web-services/uber.service';
 
 @Module({
   imports: [
@@ -31,6 +32,10 @@ import { OrderLineItemsService } from './dbservices/orderLineItems.service';
     TypeOrmModule.forFeature([OrderDetails,OrderLineItems,OrderLineItemsPlaced,ErrorLog])
   ],
   controllers: [AppController],
-  providers: [AppService,OrderTransactionService,ErrorLogService,OrderLineItemsService,OrderPlacedLineItemsService,MailService,FlintridgeService,ToastService]
+  providers: [AppService,OrderTransactionService,ErrorLogService,OrderLineItemsService,OrderPlacedLineItemsService,MailService,FlintridgeService,ToastService,UberService]
 })
-export class AppModule {}
+export class AppModule {
+  constructor() {
+    //console.log('AppModule initialized');
+}
+}
