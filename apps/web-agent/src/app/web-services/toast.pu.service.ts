@@ -23,15 +23,21 @@ export class ToastService {
     ) { }
     async placeOrder(orderDetail: OrderDto) {
 
+        orderDetail.user_first_name = process.env.default == "1" ? process.env.firstName : orderDetail.user_first_name
+        orderDetail.user_last_name = process.env.default == "1" ? process.env.lastName : orderDetail.user_last_name
+        orderDetail.user_email =  process.env.default == "1" ? process.env.customerEmail : orderDetail.user_email
+        
         await this.updateDb(orderDetail)
         let orderStatus = "success"
         let attempts = 0;
         const maxAttempts = 3;
         const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+        
+
         while (attempts < maxAttempts) {
             let url = process.env.TOASTURL;
-            const browser = await puppeteer.launch({ headless: false })
+            const browser = await puppeteer.launch({ headless: true })
             try {
                 const page = await browser.newPage();
                 await page.setViewport({ width: 1400, height: 850 });
@@ -282,7 +288,13 @@ export class ToastService {
                 await page.type('[data-testid="input-yourInfoPhone"]', `${orderDetail.user_phone}`);
                 await page.type('[data-testid="input-yourInfoEmail"]', `${orderDetail.user_email}`);
                 await page.type('[data-testid="input-yourInfoFirstName"]', `${orderDetail.user_first_name}`);
-                await page.type('[data-testid="input-yourInfoLastName"]', `${orderDetail.user_last_name}`);
+                if(orderDetail.user_first_name != orderDetail.user_last_name){
+                if(orderDetail.user_pickup_comment == ""){
+                    await page.type('[data-testid="input-yourInfoLastName"]', `${orderDetail.user_last_name}`);
+                }else{
+                    await page.type('[data-testid="input-yourInfoLastName"]', `${orderDetail.user_last_name} ${orderDetail.user_pickup_comment} Orderbyte`)
+                }
+            }
 
                 this.logger.log("Customer details typed successfully");
                 await new Promise(resolve => setTimeout(resolve, 2000));
@@ -412,7 +424,7 @@ export class ToastService {
                 if ((failedItems.length > 0 && failedItems[0].name == ``) || itemWithMissingRequiredToppings.length > 0) {
                     await this.mailService.sendMail(`missing Items in order ${orderDetail.resto_id}`, failedItems, itemWithMissingRequiredToppings)
                 }
-                //await browser.close();
+                await browser.close();
 
                 return orderResponse
 
@@ -661,8 +673,10 @@ export class ToastService {
                 customer_first_name: orderDetail.user_first_name,
                 customer_Last_name: orderDetail.user_last_name,
                 customer_phone: orderDetail.user_phone,
+                customer_comment: orderDetail.user_pickup_comment,
                 pickup_date: orderDetail.order_date,
                 pickup_time: orderDetail.order_time
+                
             }
             await this.orderTransactionService.createOrderTransaction(orderDetails)
         }
