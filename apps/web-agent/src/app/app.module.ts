@@ -28,7 +28,7 @@ import { UberService } from './web-services/uber.service';
       database: process.env.DB,
       entities: [OrderDetails,OrderLineItems,OrderLineItemsPlaced,ErrorLog],
       synchronize: true,
-      logging:true
+      //logging:true
     }),
     TypeOrmModule.forFeature([OrderDetails,OrderLineItems,OrderLineItemsPlaced,ErrorLog])
   ],
