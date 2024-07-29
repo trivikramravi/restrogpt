@@ -15,6 +15,8 @@ import { ErrorLogService } from './dbservices/errorLog.service';
 import { OrderPlacedLineItemsService } from './dbservices/orderPlaced.service';
 import { OrderLineItemsService } from './dbservices/orderLineItems.service';
 import { UberService } from './web-services/uber.service';
+import { DoordashService } from './web-services/doordash1.service';
+import { OtpService } from './utills/otpReader';
 
 @Module({
   imports: [
@@ -33,7 +35,7 @@ import { UberService } from './web-services/uber.service';
     TypeOrmModule.forFeature([OrderDetails,OrderLineItems,OrderLineItemsPlaced,ErrorLog])
   ],
   controllers: [AppController],
-  providers: [AppService,OrderTransactionService,ErrorLogService,OrderLineItemsService,OrderPlacedLineItemsService,MailService,FlintridgeService,ToastService,UberService]
+  providers: [AppService,OrderTransactionService,ErrorLogService,OrderLineItemsService,OrderPlacedLineItemsService,MailService,FlintridgeService,ToastService,UberService,DoordashService,OtpService]
 })
 export class AppModule {
   constructor() {
